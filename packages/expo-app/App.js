@@ -26,7 +26,7 @@ import WalletsScreen from "./screens/WalletsScreen";
 import SendScreen from "./screens/SendScreen";
 import TokenDisplay from "./components/TokenDisplay";
 import AddressDisplay from "./components/AddressDisplay";
-import { loadOrGenerateWallet } from "./helpers/utils";
+import { extractJSONRPCMessage, loadOrGenerateWallet } from "./helpers/utils";
 import TransactionScreen from "./screens/TransactionScreen";
 import FontAwesomeIcon from 'react-native-vector-icons/FontAwesome';
 import { FloatingButton } from "./components/FloatingButton";
@@ -34,6 +34,7 @@ import { TransactionsDisplay } from "./components/TransactionsDisplay";
 import { updateStorageTransaction } from "./helpers/Transactions";
 import useExchangePrice from "./hooks/ExchangePrice";
 import useBalance from "./hooks/Balance";
+import ErrorDisplay from "./components/ErrorDisplay";
 
 const initialNetwork = NETWORKS.ethereum; // <------- select your target frontend network (localhost, rinkeby, xdai, mainnet)
 
@@ -87,6 +88,7 @@ export default function App() {
   const [wallet, setWallet] = useState();
   const [toAddress, setToAddress] = useState();
   const [pendingTransaction, setPendingTransaction] = useState();
+  const [errorMessage, setErrorMessage] = useState(null);
   const [walletConnectUrl, setWalletConnectUrl] = useState()
   const [wallectConnectConnector, setWallectConnectConnector] = useState()
   const [walletConnectParams, setWalletConnectParams] = useState();
@@ -110,7 +112,9 @@ export default function App() {
       await updateStorageTransaction(txn)
       console.log('Send successful!');
     } catch (err) {
-      console.log('error', err);
+      console.log('sendEth error', err);
+      const message = extractJSONRPCMessage(err.error.message)
+      displayErrorMessage(message)
     }
 
   }
@@ -256,7 +260,9 @@ export default function App() {
         console.log('Unsupported Method');
       }
     } catch (err) {
-      console.log('error', err);
+      console.log('confirmTransaction error', err);
+      const message = extractJSONRPCMessage(err.error.message)
+      displayErrorMessage(message)
       wallectConnectConnector.rejectRequest({
         error: { message: `${method} failed` },
         id: payload.id,
@@ -273,6 +279,11 @@ export default function App() {
     });
     setPendingTransaction(undefined)
   }
+
+  const displayErrorMessage = useCallback((msg) => {
+    setErrorMessage(msg)
+    setTimeout(() => setErrorMessage(null), 10000)
+  }, [])
 
   // On App Load useEffect, check async storage for an existing wallet, else generate a 🔥 burner wallet.
   useEffect(() => {
@@ -307,7 +318,7 @@ export default function App() {
   const nativeTokenSymbol = targetNetwork.nativeCurrency ? targetNetwork.nativeCurrency.symbol : 'ETH'
   const nativeTokenLogo = targetNetwork.nativeCurrency ? targetNetwork.nativeCurrency.logoURI : 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png'
 
-  const dropdownArrowIcon = () => <FontAwesomeIcon name="chevron-down" size={16} />
+  const dropdownArrowIcon = () => <FontAwesomeIcon name="chevron-down" size={20} />
 
   return (
     <View>
@@ -321,6 +332,7 @@ export default function App() {
           </TouchableOpacity>
         </View>
 
+        {/* Main Area */}
         <View style={styles.main}>
           <AddressDisplay address={address} showQR={showQR} showWallet={showWallet} />
           <TokenDisplay tokenBalance={yourLocalBalance} tokenName={nativeTokenName} tokenSymbol={nativeTokenSymbol} tokenLogo={nativeTokenLogo} tokenPrice={price} />
@@ -356,10 +368,13 @@ export default function App() {
           <TransactionsDisplay provider={localProvider} wallet={wallet} address={address} pendingTransaction={pendingTransaction} />
         </View>
 
+        {/* Error Message Display */}
+        <ErrorDisplay message={errorMessage} />
+
         {/* Bottom Bar */}
-        <View style={{ position: 'absolute', bottom: 48, left: 30 }}>
+        <View style={{ position: 'absolute', bottom: 40, left: 20 }}>
           <View style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-            <Text style={{ fontSize: 18, fontWeight: '700' }}>
+            <Text style={{ fontSize: 20, fontWeight: '700' }}>
               {gasPriceInGwei} Gwei
             </Text>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -373,8 +388,9 @@ export default function App() {
                 }}
                 items={DROPDOWN_NETWORK_OPTIONS}
                 style={{
-                  inputIOS: { fontSize: 32, paddingRight: 22 },
-                  iconContainer: { top: 10 },
+                  inputIOS: { fontSize: 34, marginRight: 12 },
+                  inputIOSContainer: { marginTop: -24, paddingTop: 24, paddingRight: 24 },
+                  iconContainer: { top: 34, paddingRight: 12 },
                 }}
                 placeholder={{}}
                 Icon={dropdownArrowIcon}
@@ -382,10 +398,10 @@ export default function App() {
             </View>
           </View>
         </View>
-        <FloatingButton onPress={showSend} right={120}>
+        <FloatingButton onPress={showSend} right={110}>
           <FontAwesomeIcon name="send" size={24} color='#fff' />
         </FloatingButton>
-        <FloatingButton onPress={showScanner} right={30}>
+        <FloatingButton onPress={showScanner} right={20}>
           <AntIcon name="scan1" size={30} color='#fff' />
         </FloatingButton>
       </SafeAreaView>
